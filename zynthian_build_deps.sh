@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# install CMake
+# Install 
 sudo apt update
 sudo apt upgrade
 sudo apt install -y cmake ninja-build build-essential g++ git \
@@ -15,3 +15,11 @@ sudo apt install -y cmake ninja-build build-essential g++ git \
 git submodule update --init --recursive
 
 ./react-config 
+
+echo "=== Configuring inotify max_user_watches ==="
+if grep -q "fs.inotify.max_user_watches=524288" /etc/sysctl.conf; then
+    echo "inotify settings already configured"
+else
+    echo "fs.inotify.max_user_watches=524288" | sudo tee -a /etc/sysctl.conf
+    sudo sysctl -p
+    echo "inotify configured"
