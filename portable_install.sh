@@ -9,6 +9,7 @@ CAB_PATH="${CAB_PATH:-$HOME/.local/share/pipedal/cabs}"
 JACK_NAME="${JACK_NAME:-pipedal}"
 SAMPLE_RATE="${SAMPLE_RATE:-48000}"
 BUFFER_SIZE="${BUFFER_SIZE:-256}"
+WEB_PORT="${WEB_PORT:-8080}"
 
 echo "=== pipedal Portable Installer ==="
 echo
@@ -20,6 +21,7 @@ echo "Cab path:        $CAB_PATH"
 echo "Jack name:       $JACK_NAME"
 echo "Sample rate:    $SAMPLE_RATE"
 echo "Buffer size:    $BUFFER_SIZE"
+echo "Web port:       $WEB_PORT"
 echo
 
 read -p "Continue with installation? [Y/n] " -n 1 -r
@@ -29,55 +31,94 @@ if [[ ! $REPLY =~ ^[Yy]*$ ]]; then
     exit 1
 fi
 
-mkdir -p "$INSTALL_PREFIX"/{bin,lib/lv2,share/pipedal/{presets,models,cabs},config}
+mkdir -p "$INSTALL_PREFIX"/{bin,sbin,lib/lv2,share/pipedal/{presets,models,cabs},config,var,var/presets}
 
-cmake --install build --prefix "$INSTALL_PREFIX" --config Release
+echo "Copying executables..."
+cp /home/raspberry/pipedal/build/src/pipedald "$INSTALL_PREFIX/sbin/"
+cp /home/raspberry/pipedal/build/src/pipedalconfig "$INSTALL_PREFIX/bin/"
+cp /home/raspberry/pipedal/build/src/pipedal_kconfig "$INSTALL_PREFIX/bin/"
+cp /home/raspberry/pipedal/build/src/pipedaladmind "$INSTALL_PREFIX/sbin/"
+cp /home/raspberry/pipedal/build/src/pipedal_update "$INSTALL_PREFIX/sbin/"
+cp /home/raspberry/pipedal/build/src/pipedal_latency_test "$INSTALL_PREFIX/bin/"
+cp /home/raspberry/pipedal/build/src/pipedal_alsa_info "$INSTALL_PREFIX/bin/"
+cp /home/raspberry/pipedal/build/src/pipedalProfilePlugin "$INSTALL_PREFIX/bin/"
 
+echo "Copying LV2 plugin bundles..."
+mkdir -p "$INSTALL_PREFIX/lib/lv2"
+cp -r /home/raspberry/pipedal/src/lv2ext/pipedal.lv2 "$INSTALL_PREFIX/lib/lv2/"
+
+echo "Copying React frontend..."
+mkdir -p "$INSTALL_PREFIX/react"
+if [ -d "/home/raspberry/pipedal/vite/dist" ]; then
+    cp -r /home/raspberry/pipedal/vite/dist/* "$INSTALL_PREFIX/react/"
+fi
+
+echo "Copying default presets..."
+mkdir -p "$INSTALL_PREFIX/config/default_presets"
+if [ -d "/home/raspberry/pipedal/default_presets" ]; then
+    cp -r /home/raspberry/pipedal/default_presets/* "$INSTALL_PREFIX/config/default_presets/"
+fi
+rm -rf "$INSTALL_PREFIX/var/presets"
+
+echo "Copying plugin classes..."
+if [ -f "/home/raspberry/pipedal/config/plugin_classes.json" ]; then
+    cp /home/raspberry/pipedal/config/plugin_classes.json "$INSTALL_PREFIX/config/"
+fi
+
+echo "Creating config.json..."
+cat > "$INSTALL_PREFIX/config/config.json" << CONFEOF
+{
+    "local_storage_path": "$INSTALL_PREFIX/var",
+    "lv2_path": "$LV2_PATH",
+    "mlock": true,
+    "threads": 5,
+    "socketServerAddress": "0.0.0.0:$WEB_PORT",
+    "logHttpRequests": false,
+    "logLevel": 3,
+    "maxUploadSize": 536870912
+}
+CONFEOF
+
+echo "Creating service.conf..."
+mkdir -p "$INSTALL_PREFIX/var/config"
+cat > "$INSTALL_PREFIX/var/config/service.conf" << CONFEOF
+server_port = $WEB_PORT
+uuid = "portable"
+deviceName = "pipedal"
+CONFEOF
+
+echo "Creating /var/pipedal symlink (requires sudo)..."
+if [ ! -d "/var/pipedal" ] || [ -L "/var/pipedal" ]; then
+    sudo rm -rf /var/pipedal
+    sudo ln -sf "$INSTALL_PREFIX/var" /var/pipedal
+fi
+
+echo "Creating symlink for LV2 discovery..."
 mkdir -p "$LV2_PATH"
 if [ ! -e "$LV2_PATH/pipedal" ]; then
-    ln -sf "$INSTALL_PREFIX/lib/lv2" "$LV2_PATH/pipedal"
+    ln -sf "$INSTALL_PREFIX/lib/lv2/pipedal.lv2" "$LV2_PATH/pipedal"
 fi
 
 cat > "$INSTALL_PREFIX/env.sh" << 'ENVEOF'
 #!/bin/bash
-export LV2_PATH="$HOME/.lv2"
-export PIPEDAL_PRESETS="$HOME/.local/share/pipedal/presets"
-export PIPEDAL_MODELS="$HOME/.local/share/pipedal/models"
-export PIPEDAL_CABS="$HOME/.local/share/pipedal/cabs"
 export PIPEDAL_CONFIG="__PREFIX__/config"
-export PIPEDAL_JACK_NAME="pipedal"
-export PIPEDAL_SAMPLE_RATE="48000"
-export PIPEDAL_BUFFER_SIZE="256"
 ENVEOF
 
 sed -i "s|__PREFIX__|$INSTALL_PREFIX|g" "$INSTALL_PREFIX/env.sh"
 chmod +x "$INSTALL_PREFIX/env.sh"
 
-cat > "$INSTALL_PREFIX/config/pipedal.conf" << 'CONFEOF'
-[audio]
-jack_name = pipedal
-sample_rate = 48000
-buffer_size = 256
-
-[paths]
-lv2 = ~/.lv2
-presets = ~/.local/share/pipedal/presets
-models = ~/.local/share/pipedal/models
-cabs = ~/.local/share/pipedal/cabs
-CONFEOF
-
-sed -i "s|pipedal = pipedal|jack_name = $JACK_NAME|g" "$INSTALL_PREFIX/config/pipedal.conf"
-sed -i "s|sample_rate = 48000|sample_rate = $SAMPLE_RATE|g" "$INSTALL_PREFIX/config/pipedal.conf"
-sed -i "s|buffer_size = 256|buffer_size = $BUFFER_SIZE|g" "$INSTALL_PREFIX/config/pipedal.conf"
-
 mkdir -p "$PRESETS_PATH" "$MODELS_PATH" "$CAB_PATH"
+
+chmod +x "$INSTALL_PREFIX"/bin/* "$INSTALL_PREFIX"/sbin/* 2>/dev/null || true
 
 echo
 echo "=== Installation Complete ==="
 echo
 echo "Installed to: $INSTALL_PREFIX"
 echo
-echo "To use:"
+echo "To run:"
 echo "  source $INSTALL_PREFIX/env.sh"
-echo "  $INSTALL_PREFIX/bin/pipedal"
+echo "  sudo $INSTALL_PREFIX/sbin/pipedald $INSTALL_PREFIX/config $INSTALL_PREFIX/react"
+echo
+echo "Then open: http://localhost:$WEB_PORT"
 echo
