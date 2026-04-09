@@ -3,6 +3,7 @@ set -e
 
 INSTALL_PREFIX="${INSTALL_PREFIX:-$HOME/pipedal-portable}"
 LV2_PATH="${LV2_PATH:-$HOME/.lv2}"
+EXTRA_LV2_PATHS="${EXTRA_LV2_PATHS:-/usr/lib/lv2:/usr/local/lib/lv2}"
 PRESETS_PATH="${PRESETS_PATH:-$HOME/.local/share/pipedal/presets}"
 MODELS_PATH="${MODELS_PATH:-$HOME/.local/share/pipedal/models}"
 CAB_PATH="${CAB_PATH:-$HOME/.local/share/pipedal/cabs}"
@@ -11,17 +12,22 @@ SAMPLE_RATE="${SAMPLE_RATE:-48000}"
 BUFFER_SIZE="${BUFFER_SIZE:-256}"
 WEB_PORT="${WEB_PORT:-8080}"
 
+LV2_PATH_FULL="${INSTALL_PREFIX}/lib/lv2"
+if [ -n "$EXTRA_LV2_PATHS" ]; then
+    LV2_PATH_FULL="${LV2_PATH_FULL}:${EXTRA_LV2_PATHS}"
+fi
+
 echo "=== pipedal Portable Installer ==="
 echo
-echo "Install prefix: $INSTALL_PREFIX"
-echo "LV2 path:       $LV2_PATH"
-echo "Presets path:    $PRESETS_PATH"
-echo "Models path:     $MODELS_PATH"
-echo "Cab path:        $CAB_PATH"
-echo "Jack name:       $JACK_NAME"
-echo "Sample rate:    $SAMPLE_RATE"
-echo "Buffer size:    $BUFFER_SIZE"
-echo "Web port:       $WEB_PORT"
+echo "Install prefix:    $INSTALL_PREFIX"
+echo "LV2 path:         $LV2_PATH_FULL"
+echo "Presets path:      $PRESETS_PATH"
+echo "Models path:       $MODELS_PATH"
+echo "Cab path:          $CAB_PATH"
+echo "Jack name:         $JACK_NAME"
+echo "Sample rate:       $SAMPLE_RATE"
+echo "Buffer size:       $BUFFER_SIZE"
+echo "Web port:          $WEB_PORT"
 echo
 
 read -p "Continue with installation? [Y/n] " -n 1 -r
@@ -60,7 +66,7 @@ mkdir -p "$INSTALL_PREFIX/config/default_presets"
 if [ -d "/home/raspberry/pipedal/default_presets" ]; then
     cp -r /home/raspberry/pipedal/default_presets/* "$INSTALL_PREFIX/config/default_presets/"
 fi
-rm -rf "$INSTALL_PREFIX/var/presets"
+rm -rf "$INSTALL_PREFIX/var/presets" 2>/dev/null || sudo rm -rf "$INSTALL_PREFIX/var/presets"
 
 echo "Copying plugin classes..."
 if [ -f "/home/raspberry/pipedal/config/plugin_classes.json" ]; then
@@ -71,7 +77,7 @@ echo "Creating config.json..."
 cat > "$INSTALL_PREFIX/config/config.json" << CONFEOF
 {
     "local_storage_path": "$INSTALL_PREFIX/var",
-    "lv2_path": "$INSTALL_PREFIX/lib/lv2",
+    "lv2_path": "$LV2_PATH_FULL",
     "mlock": true,
     "threads": 5,
     "socketServerAddress": "0.0.0.0:$WEB_PORT",
@@ -117,6 +123,12 @@ echo
 echo "=== Installation Complete ==="
 echo
 echo "Installed to: $INSTALL_PREFIX"
+echo
+echo "LV2 paths configured:"
+echo "  - $INSTALL_PREFIX/lib/lv2 (portable plugins)"
+if [ -n "$EXTRA_LV2_PATHS" ]; then
+    echo "  - $EXTRA_LV2_PATHS (system plugins)"
+fi
 echo
 echo "To run:"
 echo "  source $INSTALL_PREFIX/env.sh"
