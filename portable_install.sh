@@ -45,7 +45,9 @@ cp /home/raspberry/pipedal/build/src/pipedalProfilePlugin "$INSTALL_PREFIX/bin/"
 
 echo "Copying LV2 plugin bundles..."
 mkdir -p "$INSTALL_PREFIX/lib/lv2"
-cp -r /home/raspberry/pipedal/src/lv2ext/pipedal.lv2 "$INSTALL_PREFIX/lib/lv2/"
+if [ -d "/home/raspberry/pipedal/lv2/aarch64/ToobAmp.lv2" ]; then
+    cp -r /home/raspberry/pipedal/lv2/aarch64/ToobAmp.lv2 "$INSTALL_PREFIX/lib/lv2/"
+fi
 
 echo "Copying React frontend..."
 mkdir -p "$INSTALL_PREFIX/react"
@@ -69,7 +71,7 @@ echo "Creating config.json..."
 cat > "$INSTALL_PREFIX/config/config.json" << CONFEOF
 {
     "local_storage_path": "$INSTALL_PREFIX/var",
-    "lv2_path": "$LV2_PATH",
+    "lv2_path": "$INSTALL_PREFIX/lib/lv2",
     "mlock": true,
     "threads": 5,
     "socketServerAddress": "0.0.0.0:$WEB_PORT",
@@ -95,8 +97,8 @@ fi
 
 echo "Creating symlink for LV2 discovery..."
 mkdir -p "$LV2_PATH"
-if [ ! -e "$LV2_PATH/pipedal" ]; then
-    ln -sf "$INSTALL_PREFIX/lib/lv2/pipedal.lv2" "$LV2_PATH/pipedal"
+if [ ! -e "$LV2_PATH/ToobAmp" ]; then
+    ln -sf "$INSTALL_PREFIX/lib/lv2/ToobAmp.lv2" "$LV2_PATH/ToobAmp"
 fi
 
 cat > "$INSTALL_PREFIX/env.sh" << 'ENVEOF'
