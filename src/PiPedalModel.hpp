@@ -317,6 +317,7 @@ namespace pipedal
         void UpdateNow(const std::string &updateUrl);
         void FireUpdateStatusChanged(const UpdateStatus &updateStatus);
         uint16_t GetWebPort() const { return webPort; }
+        std::string GetMdnsDomain() const { return configuration.GetMdnsDomain(); }
         std::filesystem::path GetPluginUploadDirectory() const;
         void Close();
 

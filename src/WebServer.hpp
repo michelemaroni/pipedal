@@ -238,6 +238,7 @@ public:
     virtual ~WebServer() { }
 
     virtual void SetLogHttpRequests(bool enableLogging) = 0;
+    virtual void SetMdnsDomain(const std::string &domain) = 0;
     virtual void DisplayIpAddresses() = 0;
 
     virtual void AddRequestHandler(std::shared_ptr<RequestHandler> requestHandler) = 0;

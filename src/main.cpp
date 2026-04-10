@@ -382,6 +382,8 @@ int main(int argc, char *argv[])
 
             model.Init(configuration);
 
+            server->SetMdnsDomain(model.GetMdnsDomain());
+
             // Get heavy IO out of the way before letting dependent (Jack/ALSA) services run.
             model.LoadLv2PluginInfo();
             if (systemd)

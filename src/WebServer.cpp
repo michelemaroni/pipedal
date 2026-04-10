@@ -685,6 +685,7 @@ namespace pipedal
         std::filesystem::path rootPath;
         int threads = 1;
         size_t maxUploadSize = 512 * 1024 * 1024;
+        std::string mdnsDomain = "local";
 
         std::unique_ptr<std::thread> pBgThread;
         std::recursive_mutex io_mutex;
@@ -1421,6 +1422,11 @@ namespace pipedal
             this->pBgThread = std::make_unique<std::thread>(ThreadProc, this);
         }
 
+        virtual void SetMdnsDomain(const std::string &domain) override {
+            if (!domain.empty()) {
+                this->mdnsDomain = domain;
+            }
+        }
         virtual void DisplayIpAddresses() override;
 
         WebServerImpl(const std::string &address, int port, const char *rootPath, int threads, size_t maxUploadSize);
@@ -1464,7 +1470,7 @@ void WebServerImpl::DisplayIpAddresses()
     if (hostName.length() != 0)
     {
         std::stringstream ss;
-        ss << "Listening on mDns address " << hostName << ".local:" << this->port;
+        ss << "Listening on mDns address " << hostName << "." << this->mdnsDomain << ":" << this->port;
         Lv2Log::info(ss.str());
     }
     auto ethAddresses = GetEthernetIpv4Addresses();

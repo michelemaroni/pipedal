@@ -88,7 +88,8 @@ cat > "$INSTALL_PREFIX/config/config.json" << CONFEOF
     "socketServerAddress": "0.0.0.0:$WEB_PORT",
     "logHttpRequests": false,
     "logLevel": 3,
-    "maxUploadSize": 536870912
+    "maxUploadSize": 536870912,
+    "mdns_domain": "$MDNS_DOMAIN"
 }
 CONFEOF
 

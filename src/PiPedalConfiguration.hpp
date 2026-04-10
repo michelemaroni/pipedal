@@ -48,6 +48,7 @@ private:
     std::string accessPointGateway_;
     std::string accessPointServerAddress_;
     bool isVst3Enabled_ = true;
+    std::string mdns_domain_ = "local";
     bool end_ = false; // dummy target for /var/pipedal/config/config.json
 
 public:
@@ -94,6 +95,7 @@ public:
     uint16_t GetSocketServerPort() const;
 
     uint32_t GetThreads() const { return threads_; }
+    const std::string &GetMdnsDomain() const { return mdns_domain_; }
 
     DECLARE_JSON_MAP(PiPedalConfiguration);
 };

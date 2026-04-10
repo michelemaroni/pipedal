@@ -91,7 +91,11 @@ PiPedalVersion::PiPedalVersion(PiPedalModel&model)
     char hostName[512];
     gethostname(hostName,sizeof(hostName));
 
-    this->webAddresses_.push_back(MakeWebAddress(SS(hostName << ".local"),port));
+    std::string mdnsDomain = model.GetMdnsDomain();
+    if (mdnsDomain.empty()) {
+        mdnsDomain = "local";
+    }
+    this->webAddresses_.push_back(MakeWebAddress(SS(hostName << "." << mdnsDomain),port));
 
 
     auto ethAddresses = GetEthernetIpv4Addresses();
