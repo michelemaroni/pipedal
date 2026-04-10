@@ -11,6 +11,11 @@ JACK_NAME="${JACK_NAME:-pipedal}"
 SAMPLE_RATE="${SAMPLE_RATE:-48000}"
 BUFFER_SIZE="${BUFFER_SIZE:-256}"
 WEB_PORT="${WEB_PORT:-8080}"
+MDNS_DOMAIN="${MDNS_DOMAIN:-local}"
+
+if [ "$MDNS_DOMAIN" = "none" ]; then
+    MDNS_DOMAIN=""
+fi
 
 LV2_PATH_FULL="${INSTALL_PREFIX}/lib/lv2"
 if [ -n "$EXTRA_LV2_PATHS" ]; then
@@ -107,6 +112,24 @@ if [ ! -e "$LV2_PATH/ToobAmp" ]; then
     ln -sf "$INSTALL_PREFIX/lib/lv2/ToobAmp.lv2" "$LV2_PATH/ToobAmp"
 fi
 
+if [ -n "$MDNS_DOMAIN" ]; then
+    echo "Configuring mDNS domain: $MDNS_DOMAIN"
+    
+    echo "Updating avahi-daemon.conf..."
+    if [ -f "/etc/avahi/avahi-daemon.conf" ]; then
+        if grep -q "^domain-name=" /etc/avahi/avahi-daemon.conf; then
+            sudo sed -i "s/^domain-name=.*/domain-name=$MDNS_DOMAIN/" /etc/avahi/avahi-daemon.conf
+        else
+            sudo sed -i "/^\[server\]/a domain-name=$MDNS_DOMAIN" /etc/avahi/avahi-daemon.conf
+        fi
+        echo "Restarting avahi-daemon..."
+        sudo systemctl restart avahi-daemon 2>/dev/null || sudo service avahi-daemon restart 2>/dev/null || true
+    fi
+    
+    echo "mDNS domain configured to: $MDNS_DOMAIN"
+    echo "You can now access pipedal at: http://$(hostname).$MDNS_DOMAIN:$WEB_PORT"
+fi
+
 cat > "$INSTALL_PREFIX/env.sh" << 'ENVEOF'
 #!/bin/bash
 export PIPEDAL_CONFIG="__PREFIX__/config"
@@ -119,6 +142,74 @@ mkdir -p "$PRESETS_PATH" "$MODELS_PATH" "$CAB_PATH"
 
 chmod +x "$INSTALL_PREFIX"/bin/* "$INSTALL_PREFIX"/sbin/* 2>/dev/null || true
 
+echo "Creating launch scripts..."
+
+cat > "$INSTALL_PREFIX/start.sh" << 'LAUNCHEOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOSTNAME=$(hostname)
+
+source "$SCRIPT_DIR/env.sh"
+
+if [ -f "$SCRIPT_DIR/config/service.conf" ]; then
+    WEB_PORT=$(grep "server_port" "$SCRIPT_DIR/config/service.conf" | grep -o '[0-9]*' | head -1)
+fi
+WEB_PORT=${WEB_PORT:-8080}
+
+MDNS_DOMAIN=$(grep "^domain-name=" /etc/avahi/avahi-daemon.conf 2>/dev/null | cut -d= -f2)
+MDNS_DOMAIN=${MDNS_DOMAIN:-local}
+
+echo "Starting pipedal..."
+echo "  Config: $SCRIPT_DIR/config"
+echo "  Web UI: $SCRIPT_DIR/react"
+echo "  Logs:   /tmp/pipedal.log"
+echo ""
+
+sudo "$SCRIPT_DIR/sbin/pipedald" "$SCRIPT_DIR/config" "$SCRIPT_DIR/react" > /tmp/pipedal.log 2>&1 &
+PID=$!
+
+echo "pipedal started (PID: $PID)"
+echo ""
+echo "Access URLs:"
+echo "  Local:   http://localhost:$WEB_PORT"
+if [ "$MDNS_DOMAIN" != "no" ]; then
+    echo "  Network: http://$HOSTNAME.$MDNS_DOMAIN:$WEB_PORT"
+fi
+echo ""
+echo "To view logs: $SCRIPT_DIR/logs.sh"
+echo "To stop:      $SCRIPT_DIR/stop.sh"
+LAUNCHEOF
+
+cat > "$INSTALL_PREFIX/stop.sh" << 'STOPEOF'
+#!/bin/bash
+echo "Stopping pipedal..."
+sudo pkill -f "pipedald.*config.*react" 2>/dev/null || true
+echo "pipedal stopped."
+STOPEOF
+
+cat > "$INSTALL_PREFIX/restart.sh" << 'RESTARTEOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$SCRIPT_DIR/stop.sh"
+sleep 1
+"$SCRIPT_DIR/start.sh"
+RESTARTEOF
+
+cat > "$INSTALL_PREFIX/logs.sh" << 'LOGSEOF'
+#!/bin/bash
+if [ -f /tmp/pipedal.log ]; then
+    tail -f /tmp/pipedal.log
+else
+    echo "No log file found. Is pipedal running?"
+fi
+LOGSEOF
+
+chmod +x "$INSTALL_PREFIX/start.sh" "$INSTALL_PREFIX/stop.sh" "$INSTALL_PREFIX/restart.sh" "$INSTALL_PREFIX/logs.sh"
+
+echo "Copying mDNS setup script..."
+cp /home/raspberry/pipedal/portable_install_setup_mdns.sh "$INSTALL_PREFIX/setup_mdns.sh" 2>/dev/null || true
+chmod +x "$INSTALL_PREFIX/setup_mdns.sh" 2>/dev/null || true
+
 echo
 echo "=== Installation Complete ==="
 echo
@@ -130,9 +221,18 @@ if [ -n "$EXTRA_LV2_PATHS" ]; then
     echo "  - $EXTRA_LV2_PATHS (system plugins)"
 fi
 echo
-echo "To run:"
-echo "  source $INSTALL_PREFIX/env.sh"
-echo "  sudo $INSTALL_PREFIX/sbin/pipedald $INSTALL_PREFIX/config $INSTALL_PREFIX/react"
+echo "mDNS Domain: $MDNS_DOMAIN"
+if [ -n "$MDNS_DOMAIN" ]; then
+    echo "  Access URL: http://$(hostname).$MDNS_DOMAIN:$WEB_PORT"
+else
+    echo "  mDNS disabled"
+fi
+echo
+echo "Commands:"
+echo "  $INSTALL_PREFIX/start.sh    - Start pipedal"
+echo "  $INSTALL_PREFIX/stop.sh     - Stop pipedal"
+echo "  $INSTALL_PREFIX/restart.sh  - Restart pipedal"
+echo "  $INSTALL_PREFIX/logs.sh     - View logs"
 echo
 echo "Then open: http://localhost:$WEB_PORT"
 echo
