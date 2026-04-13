@@ -206,9 +206,12 @@ LOGSEOF
 
 chmod +x "$INSTALL_PREFIX/start.sh" "$INSTALL_PREFIX/stop.sh" "$INSTALL_PREFIX/restart.sh" "$INSTALL_PREFIX/logs.sh"
 
-echo "Copying mDNS setup script..."
+echo "Copying configuration scripts..."
 cp /home/raspberry/pipedal/portable_install_setup_mdns.sh "$INSTALL_PREFIX/setup_mdns.sh" 2>/dev/null || true
 chmod +x "$INSTALL_PREFIX/setup_mdns.sh" 2>/dev/null || true
+
+cp /home/raspberry/pipedal/configure_portable.sh "$INSTALL_PREFIX/configure.sh" 2>/dev/null || true
+chmod +x "$INSTALL_PREFIX/configure.sh" 2>/dev/null || true
 
 echo
 echo "=== Installation Complete ==="
