@@ -26,7 +26,7 @@ echo ""
 echo "Step 2: LV2 Plugins Configuration"
 echo "----------------------------------"
 echo "Where should PiPedal look for LV2 plugins?"
-echo "  1. Use portable plugins only ($INSTALL_PREFIX/lib/lv2)"
+echo "  1. Use portable plugins only (\$SCRIPT_DIR/lib/lv2)"
 echo "  2. Use system paths (/usr/lib/lv2, /usr/local/lib/lv2)"
 echo "  3. Custom path"
 echo "  4. Both portable and system paths"
@@ -35,7 +35,7 @@ LV2_CHOICE=${LV2_CHOICE:-4}
 
 case $LV2_CHOICE in
     1)
-        LV2_PATH="$INSTALL_PREFIX/lib/lv2"
+        LV2_PATH="$SCRIPT_DIR/lib/lv2"
         ;;
     2)
         LV2_PATH="/usr/lib/lv2:/usr/local/lib/lv2"
@@ -44,27 +44,27 @@ case $LV2_CHOICE in
         read -p "Enter custom LV2 path (colon-separated): " LV2_PATH
         ;;
     4)
-        LV2_PATH="$INSTALL_PREFIX/lib/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
+        LV2_PATH="$SCRIPT_DIR/lib/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
         ;;
     *)
-        LV2_PATH="$INSTALL_PREFIX/lib/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
+        LV2_PATH="$SCRIPT_DIR/lib/lv2:/usr/lib/lv2:/usr/local/lib/lv2"
         ;;
 esac
 
 echo ""
 echo "Step 3: Data Directories"
 echo "-------------------------"
-read -p "Local storage path [$INSTALL_PREFIX/var]: " LOCAL_STORAGE
-LOCAL_STORAGE=${LOCAL_STORAGE:-$INSTALL_PREFIX/var}
+read -p "Local storage path [\$SCRIPT_DIR/var]: " LOCAL_STORAGE
+LOCAL_STORAGE=${LOCAL_STORAGE:-$SCRIPT_DIR/var}
 
-read -p "Presets path [~/.local/share/pipedal/presets]: " PRESETS_PATH
-PRESETS_PATH=${PRESETS_PATH:-$HOME/.local/share/pipedal/presets}
+read -p "Presets path [\$SCRIPT_DIR/var/presets]: " PRESETS_PATH
+PRESETS_PATH=${PRESETS_PATH:-$SCRIPT_DIR/var/presets}
 
-read -p "Models path [~/.local/share/pipedal/models]: " MODELS_PATH
-MODELS_PATH=${MODELS_PATH:-$HOME/.local/share/pipedal/models}
+read -p "Models path [\$SCRIPT_DIR/var/models]: " MODELS_PATH
+MODELS_PATH=${MODELS_PATH:-$SCRIPT_DIR/var/models}
 
-read -p "Cab IR path [~/.local/share/pipedal/cabs]: " CAB_PATH
-CAB_PATH=${CAB_PATH:-$HOME/.local/share/pipedal/cabs}
+read -p "Cab IR path [\$SCRIPT_DIR/var/cabs]: " CAB_PATH
+CAB_PATH=${CAB_PATH:-$SCRIPT_DIR/var/cabs}
 
 echo ""
 echo "Step 4: Audio Configuration"
@@ -117,7 +117,8 @@ echo ""
 echo "Applying configuration..."
 
 echo "Updating config.json..."
-cat > "$INSTALL_PREFIX/config/config.json" << CONFEOF
+mkdir -p "$SCRIPT_DIR/config"
+cat > "$SCRIPT_DIR/config/config.json" << CONFEOF
 {
     "local_storage_path": "$LOCAL_STORAGE",
     "lv2_path": "$LV2_PATH",
@@ -131,17 +132,17 @@ cat > "$INSTALL_PREFIX/config/config.json" << CONFEOF
 CONFEOF
 
 echo "Updating service.conf..."
-mkdir -p "$INSTALL_PREFIX/var/config"
-cat > "$INSTALL_PREFIX/var/config/service.conf" << CONFEOF
+mkdir -p "$SCRIPT_DIR/var/config"
+cat > "$SCRIPT_DIR/var/config/service.conf" << CONFEOF
 server_port = $WEB_PORT
-uuid = "$(uuidgen 2>/dev/null || echo 'portable-$(date +%s)')"
+uuid = "$(uuidgen 2>/dev/null || echo "portable-$(date +%s)")"
 deviceName = "$DEVICE_NAME"
 CONFEOF
 
 echo "Updating env.sh..."
-cat > "$INSTALL_PREFIX/env.sh" << ENVEOF
+cat > "$SCRIPT_DIR/env.sh" << ENVEOF
 #!/bin/bash
-export PIPEDAL_CONFIG="$INSTALL_PREFIX/config"
+export PIPEDAL_CONFIG="$SCRIPT_DIR/config"
 export PIPEDAL_JACK_NAME="$JACK_NAME"
 export PIPEDAL_SAMPLE_RATE="$SAMPLE_RATE"
 export PIPEDAL_BUFFER_SIZE="$BUFFER_SIZE"
@@ -149,14 +150,14 @@ export PIPEDAL_PRESETS="$PRESETS_PATH"
 export PIPEDAL_MODELS="$MODELS_PATH"
 export PIPEDAL_CABS="$CAB_PATH"
 ENVEOF
-chmod +x "$INSTALL_PREFIX/env.sh"
+chmod +x "$SCRIPT_DIR/env.sh"
 
 if [[ "$CONFIGURE_SYMLINK" =~ ^[Yy]*$ ]]; then
     echo "Creating /var/pipedal symlink..."
     if [ ! -d "/var/pipedal" ] || [ -L "/var/pipedal" ]; then
         sudo rm -rf /var/pipedal 2>/dev/null || true
-        sudo ln -sf "$LOCAL_STORAGE" /var/pipedal
-        echo "  Created: /var/pipedal -> $LOCAL_STORAGE"
+        sudo ln -sf "$SCRIPT_DIR/var" /var/pipedal
+        echo "  Created: /var/pipedal -> $SCRIPT_DIR/var"
     else
         echo "  /var/pipedal already exists (not a symlink). Skipping."
     fi
@@ -207,12 +208,12 @@ echo ""
 echo "=== Configuration Complete ==="
 echo
 echo "Updated paths:"
-echo "  config.json:   $INSTALL_PREFIX/config/config.json"
-echo "  service.conf:  $INSTALL_PREFIX/var/config/service.conf"
-echo "  env.sh:        $INSTALL_PREFIX/env.sh"
+echo "  config.json:   $SCRIPT_DIR/config/config.json"
+echo "  service.conf:  $SCRIPT_DIR/var/config/service.conf"
+echo "  env.sh:        $SCRIPT_DIR/env.sh"
 echo
 echo "To start PiPedal:"
-echo "  $INSTALL_PREFIX/start.sh"
+echo "  $SCRIPT_DIR/start.sh"
 echo
 echo "Access URLs:"
 echo "  Local:   http://localhost:$WEB_PORT"
