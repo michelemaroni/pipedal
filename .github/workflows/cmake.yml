@@ -10,7 +10,7 @@ on:
     
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
+  BUILD_TYPE: RelWithDebInfo
 
 jobs:
   build:
@@ -24,34 +24,21 @@ jobs:
     
     - name: Install dependencies
       run: |
-        npm view npm get version of @babel/plugin-proposal-private-property-in-object version command
         sudo apt-get update
-        sudo apt install gcc-12 g++-12 libnm-dev
-        sudo apt-get install -y liblilv-dev libboost-dev libjack-jackd2-dev libnl-3-dev libnl-genl-3-dev libsystemd-dev catch
-        sudo apt install -y libasound2-dev
-        sudo apt install -y libwebsocketpp-dev authbind
-        sudo apt install -y libsdbus-c++-dev libsdbus-c++-bin
-        sudo apt install -y libavahi-client-dev libzip-dev libicu-dev apt
-        sudo apt install -y libpipewire-0.3-dev 
-        sudo apt install -y libssl-dev
-        
-        sudo apt install -y librsvg2-dev 
-        git submodule update --init --recursive 
+        sudo apt-get install -y cmake ninja-build build-essential g++ git \
+          nodejs npm curl
+        sudo apt-get install -y liblilv-dev libboost-dev libsystemd-dev \
+          catch libasound2-dev uuid-dev authbind libavahi-client-dev \
+          libnm-dev libicu-dev libsdbus-c++-dev libzip-dev google-perftools \
+          libgoogle-perftools-dev libpipewire-0.3-dev libbz2-dev \
+          libssl-dev librsvg2-dev
+        git submodule update --init --recursive
         ./react-config
 
     - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
-      env:
-           CC:   gcc-13
-           CXX:  g++-13
+      run: cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
     - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-      env:
-         CC:   gcc-13
-         CXX:  g++-13
+      run: cmake --build build --config ${{ env.BUILD_TYPE }}
     #- name: Test
     #  working-directory: ${{github.workspace}}/build
     #  # Execute CMake BuiltTest test
@@ -59,11 +46,13 @@ jobs:
     - name: Make Package
       run: ./makePackage.sh
        
-    - name: Generate Artifacts
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-          name: artifact-${{ matrix.os }}
+          name: pipedal-${{ matrix.os }}
           path: |
               build/*.deb
+              build/**
+              !build/**/*.o
           retention-days: 5
              
