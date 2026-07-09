@@ -23,22 +23,12 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cmake ninja-build build-essential g++ git \
-          nodejs npm curl
-        sudo apt-get install -y liblilv-dev libboost-dev libsystemd-dev \
-          catch libasound2-dev uuid-dev authbind libavahi-client-dev \
-          libnm-dev libicu-dev libsdbus-c++-dev libzip-dev google-perftools \
-          libgoogle-perftools-dev libpipewire-0.3-dev libbz2-dev \
-          libssl-dev librsvg2-dev
-        git submodule update --init --recursive
-        ./react-config
+      run: ./set_prerequisites.sh
 
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+      run: ./init.sh "${{ env.BUILD_TYPE }}"
     - name: Build
-      run: cmake --build build --config ${{ env.BUILD_TYPE }}
+      run: ./mk.sh "${{ env.BUILD_TYPE }}"
     #- name: Test
     #  working-directory: ${{github.workspace}}/build
     #  # Execute CMake BuiltTest test
